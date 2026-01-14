@@ -160,7 +160,7 @@ Pozwal to na automatyzację procesów, redukcję ryzyka ludzkiego błędu i wpro
 ![Wynik skanowania obrazu przez Trivy](./docs/images/trivy-scan-result.jpg)
 *Rys. 3.6.3. Wynik działania kroku skanowania bezpieczeństwa obrazu Docker za pomocą narzędzia Trivy. W ramach potoku CI/CD, każda nowa wersja aplikacji jest analizowana pod kątem znanych podatności. Wdrożenie jest kontynuowane tylko w przypadku, gdy skan nie wykryje krytycznych lub wysokich zagrożeń.*
 
-Dowodem na pełną automatyzację wdrożenia jest lista wersji aplikacji w konsoli AWS Elastic Beanstalk. Etykiety wersji (np. `v-be73c1acba3bb0fec4f7939880c12cc9cfce7706`) zawierają unikalny identyfikator SHA commita z Git, co potwierdza, że zostały one stworzone i wdrożone automatycznie przez potok CI/CD, a nie ręcznie.
+Dowodem na pełną automatyzację wdrożenia jest lista wersji aplikacji w konsoli AWS Elastic Beanstalk. Etykiety wersji (np. `v-dd9c28b3d455c5145785a6a2433a88b3420e6501`) zawierają unikalny identyfikator SHA commita z Git, co potwierdza, że zostały one stworzone i wdrożone automatycznie przez potok CI/CD, a nie ręcznie.
 
 ![Lista wersji aplikacji w środowisku Elastic Beanstalk](./docs/images/eb-versions-list.jpg)
 *Rys. 3.6.4. Lista wersji aplikacji w środowisku Elastic Beanstalk.*

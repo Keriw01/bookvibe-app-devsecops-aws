@@ -1,0 +1,104 @@
+name: Deploy BookVibe to AWS Elastic Beanstalk
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  AWS_REGION: eu-central-1
+  ECR_REPOSITORY_BACKEND: bookvibe-backend
+  ECR_REPOSITORY_FRONTEND: bookvibe-frontend
+  EB_APPLICATION_NAME: "bookvibe-app"
+  EB_ENVIRONMENT_NAME: "bookvibe-env"
+
+jobs:
+  deploy:
+    name: Build, Scan and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        id: configure-aws-credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, Tag, and Push Backend Image to ECR
+        id: build-image-backend
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG ./backend
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG
+          IMAGE_URL="$ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:$IMAGE_TAG"
+          echo "image=$(echo ${IMAGE_URL} | tr -d '\n')" >> "$GITHUB_OUTPUT"
+
+      - name: Scan Backend Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.build-image-backend.outputs.image }}
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Build, Tag, and Push Frontend Image to ECR
+        id: build-image-frontend
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:$IMAGE_TAG ./frontend
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:$IMAGE_TAG
+          IMAGE_URL="$ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:$IMAGE_TAG"
+          echo "image=$(echo ${IMAGE_URL} | tr -d '\n')" >> "$GITHUB_OUTPUT"
+
+      - name: Scan Frontend Image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.build-image-frontend.outputs.image }}
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Generate Dockerrun.aws.json
+        env:
+          BACKEND_IMAGE: ${{ steps.build-image-backend.outputs.image }}
+          FRONTEND_IMAGE: ${{ steps.build-image-frontend.outputs.image }}
+        run: |
+          echo "Backend Image URL: $BACKEND_IMAGE"
+          echo "Frontend Image URL: $FRONTEND_IMAGE"
+          
+          sed -e "s|<BACKEND_IMAGE_URL>|$BACKEND_IMAGE|g" \
+              -e "s|<FRONTEND_IMAGE_URL>|$FRONTEND_IMAGE|g" \
+              Dockerrun.aws.json.template > Dockerrun.aws.json
+      
+      - name: Display Dockerrun.aws.json for debugging
+        run: cat Dockerrun.aws.json
+        
+      - name: Deploy to Elastic Beanstalk
+        uses: einaregilsson/beanstalk-deploy@v21
+        with:
+          aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+          application_name: ${{ env.EB_APPLICATION_NAME }}
+          environment_name: ${{ env.EB_ENVIRONMENT_NAME }}
+          version_label: "v-${{ github.sha }}"
+          region: ${{ env.AWS_REGION }}
+          deployment_package: Dockerrun.aws.json

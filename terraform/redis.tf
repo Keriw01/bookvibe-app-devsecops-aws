@@ -12,7 +12,7 @@ resource "aws_elasticache_subnet_group" "main" {
 resource "aws_elasticache_cluster" "main" {
   cluster_id           = "bookvibe-redis-cluster"
   engine               = "redis"
-  node_type            = "cache.t2.micro"
+  node_type            = "cache.t3.micro"
   num_cache_nodes      = 1
   parameter_group_name = "default.redis7"
   port                 = 6379
